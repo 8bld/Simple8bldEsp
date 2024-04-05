@@ -1,0 +1,142 @@
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Variables
+local LocalPlayer = Players.LocalPlayer
+local CurrentCamera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+local TracerColor = Color3.fromRGB(255, 255, 255) -- Change this to your desired color
+
+-- GUI
+local ESPEnabled = true
+local TracersEnabled = true
+local BoxesEnabled = true
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ESP"
+ScreenGui.Parent = game.CoreGui
+
+-- Functions
+local function CreateESP(player)
+    local BoxOutline = Drawing.new("Square")
+    BoxOutline.Visible = BoxesEnabled
+    BoxOutline.Color = TracerColor
+    BoxOutline.Thickness = 3
+    BoxOutline.Transparency = 1
+    BoxOutline.Filled = false
+
+    local Box = Drawing.new("Square")
+    Box.Visible = BoxesEnabled
+    Box.Color = TracerColor
+    Box.Thickness = 1
+    Box.Transparency = 1
+    Box.Filled = false
+
+    local Tracer = Drawing.new("Line")
+    Tracer.Visible = TracersEnabled
+    Tracer.Color = TracerColor
+    Tracer.Thickness = 1
+
+    local UpdateESP = function()
+        local Success, ScreenPosition = pcall(function()
+            return CurrentCamera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+        end)
+
+        if not Success then
+            BoxOutline.Visible = false
+            Box.Visible = false
+            Tracer.Visible = false
+            return
+        end
+
+        local Scale = player.Character.HumanoidRootPart.Size.X * 2
+
+        BoxOutline.Size = Vector2.new(Scale * 1.5, Scale * 2)
+        BoxOutline.Position = Vector2.new(ScreenPosition.X - Scale * 1.5 / 2, ScreenPosition.Y - Scale * 2)
+        BoxOutline.Visible = BoxesEnabled
+
+        Box.Size = Vector2.new(Scale * 1.5, Scale * 2)
+        Box.Position = Vector2.new(ScreenPosition.X - Scale * 1.5 / 2, ScreenPosition.Y - Scale * 2)
+        Box.Visible = BoxesEnabled
+
+        Tracer.From = Vector2.new(CurrentCamera.ViewportSize.X / 2, CurrentCamera.ViewportSize.Y)
+        Tracer.To = Vector2.new(ScreenPosition.X, ScreenPosition.Y)
+        Tracer.Visible = TracersEnabled
+    end
+
+    local PlayerAdded = function()
+        UpdateESP()
+    end
+
+    local PlayerRemoving = function()
+        BoxOutline:Remove()
+        Box:Remove()
+        Tracer:Remove()
+    end
+
+    player.CharacterAdded:Connect(PlayerAdded)
+    player.CharacterRemoving:Connect(PlayerRemoving)
+    RunService.RenderStepped:Connect(UpdateESP)
+end
+
+-- Setup
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        CreateESP(player)
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    if player ~= LocalPlayer then
+        CreateESP(player)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if player ~= LocalPlayer then
+        player:Kick("Leaving the game")
+    end
+end)
+
+-- Toggle ESP
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if not gameProcessedEvent then
+        if input.KeyCode == Enum.KeyCode.F3 then
+            ESPEnabled = not ESPEnabled
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    for _, obj in ipairs(ScreenGui:GetDescendants()) do
+                        if obj.Name == player.Name then
+                            obj.Visible = ESPEnabled
+                        end
+                    end
+                end
+            end
+        elseif input.KeyCode == Enum.KeyCode.F4 then
+            TracersEnabled = not TracersEnabled
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    for _, obj in ipairs(ScreenGui:GetDescendants()) do
+                        if obj.Name == player.Name .. "Tracer" then
+                            obj.Visible = TracersEnabled
+                        end
+                    end
+                end
+            end
+        elseif input.KeyCode == Enum.KeyCode.F5 then
+            BoxesEnabled = not BoxesEnabled
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    for _, obj in ipairs(ScreenGui:GetDescendants()) do
+                        if obj.Name == player.Name .. "Box" or obj.Name == player.Name .. "BoxOutline" then
+                            obj.Visible = BoxesEnabled
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
